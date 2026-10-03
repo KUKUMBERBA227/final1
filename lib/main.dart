@@ -142,7 +142,8 @@ class _ForexScreenState extends State<ForexScreen> {
         title: const Text('EUR/USD Forex Simulator', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1E2329),
         elevation: 0,
-        actions: [IconButton(
+        actions: [
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
               setState(() {
@@ -331,6 +332,7 @@ class ChartPainter extends CustomPainter {
   final List<double> prices;
 
   ChartPainter(this.prices);
+
   @override
   void paint(Canvas canvas, Size size) {
     if (prices.length < 2) return;

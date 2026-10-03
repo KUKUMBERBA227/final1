@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart0:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 
@@ -96,7 +96,7 @@ class _ForexScreenState extends State<ForexScreen> {
   void _openTrade(String type) {
     if (_balance < 100) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Недостаточно баланса! Нужно минимум $100')),
+        const SnackBar(content: Text('Недостаточно баланса! Нужно минимум \$100')),
       );
       return;
     }
@@ -286,7 +286,7 @@ class _ForexScreenState extends State<ForexScreen> {
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0ECB81),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       onPressed: () => _openTrade('BUY'),
                       child: const Text('ВВЕРХ (BUY)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
@@ -300,7 +300,7 @@ class _ForexScreenState extends State<ForexScreen> {
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFF6465D),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       onPressed: () => _openTrade('SELL'),
                       child: const Text('ВНИЗ (SELL)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),

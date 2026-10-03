@@ -1,314 +1,391 @@
-import 'dart:ui';
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 void main() {
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider<PaymentData>(create: (_) => PaymentData()),
-        ChangeNotifierProvider<ThemeDataNotifier>(create: (_) => ThemeDataNotifier()),
-      ],
-      builder: (context, _) => const SberTerminalApp(),
-    ),
-  );
+  runApp(const ForexGameApp());
 }
 
-class ThemeDataNotifier extends ChangeNotifier {
-  bool _isDark = true;
-  bool get isDark => _isDark;
-
-  void toggleTheme() {
-    _isDark = !_isDark;
-    notifyListeners();
-  }
-}
-
-class PaymentData extends ChangeNotifier {
-  double _enteredAmount = 1500.0;
-  int _selectedTip = 0;
-  String _selectedMethod = 'Карта';
-
-  final List<int> tipOptions = [0, 100, 300, 500];
-  final List<String> methods = ['Карта', 'SberPay', 'QR'];
-
-  double get enteredAmount => _enteredAmount;
-  int get selectedTip => _selectedTip;
-  String get selectedMethod => _selectedMethod;
-  double get total => _enteredAmount + _selectedTip;
-
-  void updateAmount(double amount) {
-    _enteredAmount = amount;
-    notifyListeners();
-  }
-
-  void updateTip(int tip) {
-    _selectedTip = tip;
-    notifyListeners();
-  }
-
-  void updateMethod(String method) {
-    _selectedMethod = method;
-    notifyListeners();
-  }
-}
-
-class SberTerminalApp extends StatelessWidget {
-  const SberTerminalApp({super.key});
+class ForexGameApp extends StatelessWidget {
+  const ForexGameApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = Provider.of<ThemeDataNotifier>(context);
-    final isDark = themeNotifier.isDark;
-
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: isDark
-          ? ThemeData.dark().copyWith(
-              scaffoldBackgroundColor: const Color(0xFF0A0D18),
-              colorScheme: const ColorScheme.dark(
-                primary: Color(0xFFE5FF44),
-                surface: Color(0xFF161A29),
-              ),
-            )
-          : ThemeData.light().copyWith(
-              scaffoldBackgroundColor: const Color(0xFFF0F2F5),
-              colorScheme: const ColorScheme.light(
-                primary: Color(0xFF247BFF),
-                surface: Colors.white,
-              ),
-            ),
-      home: const TerminalScreen(),
+      title: 'Forex Trader Simulator',
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF12161A),
+        cardColor: const Color(0xFF1E2329),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF0ECB81), // Green
+          secondary: Color(0xFFF6465D), // Red
+        ),
+      ),
+      home: const ForexScreen(),
     );
   }
 }
 
-class TerminalScreen extends StatefulWidget {
-  const TerminalScreen({super.key});
+class TradePosition {
+  final String id;
+  final String type; // 'BUY' or 'SELL'
+  final double entryPrice;
+  final double amount;
 
-  @override
-  State<TerminalScreen> createState() => _TerminalScreenState();
+  TradePosition({
+    required this.id,
+    required this.type,
+    required this.entryPrice,
+    required this.amount,
+  });
 }
 
-class _TerminalScreenState extends State<TerminalScreen> {
-  final TextEditingController _amountController = TextEditingController(text: '1500');
+class ForexScreen extends StatefulWidget {
+  const ForexScreen({super.key});
+
+  @override
+  State<ForexScreen> createState() => _ForexScreenState();
+}
+
+class _ForexScreenState extends State<ForexScreen> {
+  double _balance = 1000.00;
+  double _currentPrice = 1.0850; // EUR/USD initial price
+  final List<double> _priceHistory = [];
+  final List<TradePosition> _openPositions = [];
+  final Random _random = Random();
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize price history
+    double price = _currentPrice;
+    for (int i = 0; i < 30; i++) {
+      price += (_random.nextDouble() - 0.49) * 0.0008;
+      _priceHistory.add(price);
+    }
+    _currentPrice = price;
+
+    // Start market ticks (updates every 800ms)
+    _timer = Timer.periodic(const Duration(milliseconds: 800), (timer) {
+      _updateMarketPrice();
+    });
+  }
 
   @override
   void dispose() {
-    _amountController.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
-  void _navigateToPayment(BuildContext context) {
-    final data = Provider.of<PaymentData>(context, listen: false);
-    final input = double.tryParse(_amountController.text) ?? 0.0;
-    data.updateAmount(input);
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const PaymentSelectionScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
-      ),
-    );
+  void _updateMarketPrice() {
+    setState(() {
+      // Simulate price movements
+      double change = (_random.nextDouble() - 0.495) * 0.0012;
+      _currentPrice += change;
+      if (_currentPrice < 0.5) _currentPrice = 0.5;
+
+      _priceHistory.add(_currentPrice);
+      if (_priceHistory.length > 40) {
+        _priceHistory.removeAt(0);
+      }
+    });
+  }
+
+  void _openTrade(String type) {
+    if (_balance < 100) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Недостаточно баланса! Нужно минимум $100')),
+      );
+      return;
+    }
+
+    setState(() {
+      _balance -= 100; // Fixed trade lot size of $100
+      _openPositions.add(
+        TradePosition(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          type: type,
+          entryPrice: _currentPrice,
+          amount: 100,
+        ),
+      );
+    });
+  }
+
+  void _closeTrade(TradePosition trade) {
+    double pnl = _calculatePnL(trade);
+    setState(() {
+      _balance += trade.amount + pnl;
+      _openPositions.removeWhere((p) => p.id == trade.id);
+    });
+  }
+
+  double _calculatePnL(TradePosition trade) {
+    double diff = _currentPrice - trade.entryPrice;
+    if (trade.type == 'SELL') diff = -diff;
+    return (diff / trade.entryPrice) * trade.amount * 50; // 50x Leverage effect
+  }
+
+  double _getTotalUnrealizedPnL() {
+    return _openPositions.fold(0.0, (sum, trade) => sum + _calculatePnL(trade));
   }
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = Provider.of<ThemeDataNotifier>(context);
-    final isDark = themeNotifier.isDark;
+    final unrealizedPnL = _getTotalUnrealizedPnL();
+    final totalEquity = _balance + _openPositions.length * 100 + unrealizedPnL;
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        title: const Text('EUR/USD Forex Simulator', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF1E2329),
         elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: () => themeNotifier.toggleTheme(),
-            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+        actions: [IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              setState(() {
+                _balance = 1000.0;
+                _openPositions.clear();
+              });
+            },
           )
         ],
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Container(
-            width: 400,
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(48),
-              color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
-              border: Border.all(color: Colors.grey.withOpacity(0.2)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+      body: Column(
+        children: [
+          // Header Stats
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            color: const Color(0xFF1E2329),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Введите сумму', style: TextStyle(fontSize: 16)),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: _amountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w800),
-                  decoration: const InputDecoration(border: InputBorder.none, suffixText: '₽'),
-                ),
-                const SizedBox(height: 40),
-                SizedBox(
-                  width: double.infinity,
-                  height: 64,
-                  child: ElevatedButton(
-                    onPressed: () => _navigateToPayment(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: isDark ? Colors.black : Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    ),
-                    child: const Text('ДАЛЕЕ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                _buildStatColumn('Свободный Баланс', '\$${_balance.toStringAsFixed(2)}'),
+                _buildStatColumn('Общий Капитал', '\$${totalEquity.toStringAsFixed(2)}',
+                    color: totalEquity >= 1000 ? const Color(0xFF0ECB81) : const Color(0xFFF6465D)),
+                _buildStatColumn('Текущий P&L', '\$${unrealizedPnL.toStringAsFixed(2)}',
+                    color: unrealizedPnL >= 0 ? const Color(0xFF0ECB81) : const Color(0xFFF6465D)),
+              ],
+            ),
+          ),
+
+          // Price Header
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('EUR / USD', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                Text(
+                  _currentPrice.toStringAsFixed(4),
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: _priceHistory.length > 1 && _currentPrice >= _priceHistory[_priceHistory.length - 2]
+                        ? const Color(0xFF0ECB81)
+                        : const Color(0xFFF6465D),
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
 
-class PaymentSelectionScreen extends StatelessWidget {
-  const PaymentSelectionScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Provider.of<ThemeDataNotifier>(context).isDark;
-    return Scaffold(
-      body: Consumer<PaymentData>(
-        builder: (context, data, _) => Center(
-          child: SingleChildScrollView(
+          // Custom Chart
+          Expanded(
+            flex: 3,
             child: Container(
-              width: 400,
-              margin: const EdgeInsets.all(20),
-              padding: const EdgeInsets.all(32),
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(48),
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
-                border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                color: const Color(0xFF1E2329),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('К оплате', style: TextStyle(fontSize: 16)),
-                  Text('${data.total.toInt()} ₽', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 32),
-                  TipSelector(data: data),
-                  const SizedBox(height: 32),
-                  const Align(alignment: Alignment.centerLeft, child: Text('Способ оплаты')),
-                  const SizedBox(height: 12),
-                  MethodSelector(data: data),
-                  const SizedBox(height: 40),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 64,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SuccessScreen())),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: isDark ? Colors.black : Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ),
-                      child: const Text('ОПЛАТИТЬ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
+              child: CustomPaint(
+                painter: ChartPainter(_priceHistory),
+                child: Container(),
               ),
             ),
           ),
-        ),
+
+          // Open Positions Section
+          const Padding(
+            padding: EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Открытые сделки', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: _openPositions.isEmpty
+                ? const Center(child: Text('Нет открытых позиций', style: TextStyle(color: Colors.grey)))
+                : ListView.builder(
+                    itemCount: _openPositions.length,
+                    itemBuilder: (context, index) {
+                      final trade = _openPositions[index];
+                      final pnl = _calculatePnL(trade);
+                      final isProfitable = pnl >= 0;
+
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E2329),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: trade.type == 'BUY' ? const Color(0xFF0ECB81) : const Color(0xFFF6465D),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${trade.type} (\$100)',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: trade.type == 'BUY' ? const Color(0xFF0ECB81) : const Color(0xFFF6465D))),
+                                Text('Вход: ${trade.entryPrice.toStringAsFixed(4)}',
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                              ],
+                            ),
+                            Text(
+                              '${isProfitable ? '+' : ''}\$${pnl.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isProfitable ? const Color(0xFF0ECB81) : const Color(0xFFF6465D)),
+                            ),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey[800],
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              ),
+                              onPressed: () => _closeTrade(trade),
+                              child: const Text('Закрыть', style: TextStyle(color: Colors.white)),
+                            )
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+
+          // Control Trading Buttons
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 54,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0ECB81),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () => _openTrade('BUY'),
+                      child: const Text('ВВЕРХ (BUY)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 54,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF6465D),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () => _openTrade('SELL'),
+                      child: const Text('ВНИЗ (SELL)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
-}
 
-class TipSelector extends StatelessWidget {
-  final PaymentData data;
-  const TipSelector({super.key, required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Provider.of<ThemeDataNotifier>(context).isDark;
+  Widget _buildStatColumn(String label, String value, {Color color = Colors.white}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Чаевые'),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: data.tipOptions.map<Widget>((tip) {
-            final isSelected = data.selectedTip == tip;
-            return ChoiceChip(
-              label: Text(tip == 0 ? 'Без чаевых' : '$tip ₽'),
-              selected: isSelected,
-              onSelected: (_) => data.updateTip(tip),
-              selectedColor: Theme.of(context).colorScheme.primary,
-              backgroundColor: isDark ? Colors.white10 : Colors.black12,
-              labelStyle: TextStyle(color: isSelected ? (isDark ? Colors.black : Colors.white) : null),
-            );
-          }).toList(),
-        ),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color)),
       ],
     );
   }
 }
 
-class MethodSelector extends StatelessWidget {
-  final PaymentData data;
-  const MethodSelector({super.key, required this.data});
+// Custom Painter for rendering live Forex Chart Line
+class ChartPainter extends CustomPainter {
+  final List<double> prices;
+
+  ChartPainter(this.prices);
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (prices.length < 2) return;
+
+    final minPrice = prices.reduce(min);
+    final maxPrice = prices.reduce(max);
+    final range = (maxPrice - minPrice) == 0 ? 1 : (maxPrice - minPrice);
+
+    final linePaint = Paint()
+      ..color = prices.last >= prices.first ? const Color(0xFF0ECB81) : const Color(0xFFF6465D)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke;
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          (prices.last >= prices.first ? const Color(0xFF0ECB81) : const Color(0xFFF6465D)).withOpacity(0.3),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    final path = Path();
+    final fillPath = Path();
+
+    double stepX = size.width / (prices.length - 1);
+
+    for (int i = 0; i < prices.length; i++) {
+      double x = i * stepX;
+      double normalizedY = (prices[i] - minPrice) / range;
+      double y = size.height - (normalizedY * (size.height - 20)) - 10;
+
+      if (i == 0) {
+        path.moveTo(x, y);
+        fillPath.moveTo(x, size.height);
+        fillPath.lineTo(x, y);
+      } else {
+        path.lineTo(x, y);
+        fillPath.lineTo(x, y);
+      }
+
+      if (i == prices.length - 1) {
+        fillPath.lineTo(x, size.height);
+        fillPath.close();
+
+        // Draw last price point dot
+        canvas.drawCircle(Offset(x, y), 4, Paint()..color = linePaint.color);
+      }
+    }
+
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(path, linePaint);
+  }
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: data.methods.map<Widget>((method) {
-        final isSelected = data.selectedMethod == method;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => data.updateMethod(method),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: isSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : Colors.transparent,
-                border: Border.all(color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.withOpacity(0.3)),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Center(child: Text(method, style: const TextStyle(fontWeight: FontWeight.w500))),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class SuccessScreen extends StatelessWidget {
-  const SuccessScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.check, color: Theme.of(context).colorScheme.primary, size: 80)),
-            const SizedBox(height: 32),
-            const Text('Оплата прошла успешно', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 48),
-            TextButton(
-              onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-              child: const Text('Вернуться'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  bool shouldRepaint(covariant ChartPainter oldDelegate) => true;
 }

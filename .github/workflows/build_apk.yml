@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Infinity Apk
 
 on:
   push:
@@ -10,32 +10,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Infinity Apk
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Infinity Apk
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Flutter
+      - name: Infinity Apk
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
       # Генерируем недостающие файлы Android проекта
-      - name: Create Android project files
+      - name: Infinity Apk
         run: flutter create . --platforms=android
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build APK
+      - name: Infinity Apk
         run: flutter build apk --release --no-tree-shake-icons
 
-      - name: Upload APK Artifact
+      - name: Infinity Apk
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
+          name: Infinity Apk
           path: build/app/outputs/flutter-apk/app-release.apk

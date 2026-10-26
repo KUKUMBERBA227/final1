@@ -512,4 +512,4 @@ class CanvasPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CanvasPainter oldDelegate) => true;
-}b
+}

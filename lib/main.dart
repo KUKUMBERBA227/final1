@@ -24,7 +24,7 @@ class RadarPageModel extends ChangeNotifier {
     },
   ];
 
-  List> get tabs => _tabs;
+  List get tabs => _tabs;
 
   void setIndex(int index) {
     if (_currentIndex != index) {
@@ -64,7 +64,8 @@ class MainScreen extends StatelessWidget {
         children: [
           IndexedStack(
             index: model.currentIndex,
-            children: model.tabs.map<Widget>((tab) {
+            children: model.tabs.map<Widget>((tabItem) {
+              final tab = tabItem as Map<String, dynamic>;
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
@@ -117,9 +118,10 @@ class MainScreen extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: model.tabs.asMap().entries.map<Widget>((entry) {
                         int idx = entry.key;
+                        final val = entry.value as Map<String, dynamic>;
                         return TabButton(
-                          title: entry.value['title'] as String,
-                          icon: entry.value['icon'] as IconData,
+                          title: val['title'] as String,
+                          icon: val['icon'] as IconData,
                           isSelected: model.currentIndex == idx,
                           onTap: () => model.setIndex(idx),
                         );

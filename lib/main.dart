@@ -11,7 +11,7 @@ class RadarPageModel extends ChangeNotifier {
   int _currentIndex = 0;
   int get currentIndex => _currentIndex;
 
-  final List<Map<String, dynamic>> _tabs = const [
+  final List> _tabs = const [
     {
       'title': 'Detector',
       'icon': Icons.radar_rounded,
@@ -24,7 +24,7 @@ class RadarPageModel extends ChangeNotifier {
     },
   ];
 
-  List<Map<String, dynamic>> get tabs => _tabs;
+  List> get tabs => _tabs;
 
   void setIndex(int index) {
     if (_currentIndex != index) {
@@ -81,7 +81,12 @@ class MainScreen extends StatelessWidget {
                       ElevatedButton.icon(
                         icon: const Icon(Icons.open_in_browser),
                         label: const Text('Open in Browser'),
-                        onPressed: () => launchUrl(Uri.parse(tab['url'] as String)),
+                        onPressed: () async {
+                          final uri = Uri.parse(tab['url'] as String);
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        },
                       ),
                     ],
                   ),
@@ -176,3 +181,4 @@ class TabButton extends StatelessWidget {
       ),
     );
   }
+}

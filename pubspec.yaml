@@ -1,4 +1,4 @@
-name: my_app
+name: RadarApp
 description: "App created from DartPad"
 publish_to: 'none'
 version: 1.0.0+1
@@ -10,7 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  provider: ^6.1.2  # <-- ОБЯЗАТЕЛЬНО ДОБАВЬТЕ ЭТУ СТРОЧКУ
+  provider: ^6.1.2
+  url_launcher: ^6.2.5  # <-- ВОТ ЭТА СТРОКА ИСПРАВИТ ОШИБКУ
 
 flutter:
   uses-material-design: true

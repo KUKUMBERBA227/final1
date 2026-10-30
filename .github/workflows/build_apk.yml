@@ -10,31 +10,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Infinity Apk
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Infinity Apk
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Infinity Apk
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      # Генерируем недостающие файлы Android проекта
-      - name: Infinity Apk
-        run: flutter create . --platforms=android
+      # Генерируем файлы Android проекта с правильным именем (строчные буквы)
+      - name: Create Android files
+        run: flutter create . --platforms=android --project-name=radar_app
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Infinity Apk
+      - name: Build APK
         run: flutter build apk --release --no-tree-shake-icons
 
-      - name: Infinity Apk
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Infinity Apk

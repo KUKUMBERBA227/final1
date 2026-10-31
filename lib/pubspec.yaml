@@ -1,4 +1,4 @@
-name: drone_app
+name: pixel_app
 description: "Aero Radar Glass"
 publish_to: 'none'
 version: 1.0.0+1

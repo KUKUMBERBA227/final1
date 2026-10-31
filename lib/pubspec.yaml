@@ -1,4 +1,4 @@
-name: radar_app
+name: drone_app
 description: "Aero Radar Glass"
 publish_to: 'none'
 version: 1.0.0+1

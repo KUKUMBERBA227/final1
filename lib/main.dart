@@ -1,8 +1,6 @@
 
-import 'dart:html' as html;
-import 'dart:ui_web' as ui_web;
-
 import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 void main() {
   runApp(const BunkerApp());
@@ -13,23 +11,17 @@ class BunkerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF8AB4F8);
-
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Бункер России',
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: seed,
+          seedColor: const Color(0xFF8AB4F8),
           brightness: Brightness.dark,
           surface: const Color(0xFF111318),
         ),
         scaffoldBackgroundColor: const Color(0xFF111318),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF111318),
-          centerTitle: false,
-        ),
       ),
       home: const BunkerHome(),
     );
@@ -96,16 +88,15 @@ class _BunkerHomeState extends State<BunkerHome> {
         title: Row(
           children: [
             Container(
-              width: 42,
-              height: 42,
+              width: 43,
+              height: 43,
               decoration: BoxDecoration(
                 color: const Color(0xFF26364D),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(15),
               ),
               child: const Icon(
                 Icons.shield_rounded,
                 color: Color(0xFFAAC7FF),
-                size: 25,
               ),
             ),
             const SizedBox(width: 12),
@@ -116,7 +107,7 @@ class _BunkerHomeState extends State<BunkerHome> {
                   'Бункер России',
                   style: TextStyle(
                     fontSize: 19,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
@@ -131,79 +122,47 @@ class _BunkerHomeState extends State<BunkerHome> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Открыть в браузере',
-            onPressed: () {
-              html.window.open(current.url, '_blank');
-            },
-            icon: const Icon(Icons.open_in_new_rounded),
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
 
       body: Column(
         children: [
-          // Информация о выбранном разделе
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Row(
               children: [
-                Icon(
-                  current.icon,
-                  color: const Color(0xFFAAC7FF),
-                  size: 19,
-                ),
-                const SizedBox(width: 9),
+                Icon(current.icon, color: const Color(0xFFAAC7FF)),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     current.name,
                     style: const TextStyle(
-                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 11,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1B332B),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(
-                        Icons.circle,
-                        size: 8,
-                        color: Color(0xFF81C995),
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        'ОНЛАЙН',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF81C995),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+                const Icon(
+                  Icons.circle,
+                  size: 9,
+                  color: Color(0xFF81C995),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'WEB',
+                  style: TextStyle(
+                    color: Color(0xFF81C995),
+                    fontSize: 11,
                   ),
                 ),
               ],
             ),
           ),
 
-          // Окно сайта
           Expanded(
             child: IndexedStack(
               index: selectedIndex,
               children: [
                 for (final site in sites)
-                  WebSiteView(
+                  BunkerWebView(
                     key: ValueKey(site.url),
                     url: site.url,
                   ),
@@ -213,11 +172,11 @@ class _BunkerHomeState extends State<BunkerHome> {
         ],
       ),
 
-      // Нижняя панель переключения сайтов
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
-        height: 78,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        height: 76,
+        labelBehavior:
+            NavigationDestinationLabelBehavior.alwaysShow,
         onDestinationSelected: (index) {
           setState(() {
             selectedIndex = index;
@@ -239,54 +198,83 @@ class _BunkerHomeState extends State<BunkerHome> {
   }
 }
 
-// Отображение сайтов внутри приложения
-class WebSiteView extends StatefulWidget {
+class BunkerWebView extends StatefulWidget {
   final String url;
 
-  const WebSiteView({
+  const BunkerWebView({
     super.key,
     required this.url,
   });
 
   @override
-  State<WebSiteView> createState() => _WebSiteViewState();
+  State<BunkerWebView> createState() => _BunkerWebViewState();
 }
 
-class _WebSiteViewState extends State<WebSiteView> {
-  static int nextId = 0;
-
-  late final String viewType;
-  late final html.IFrameElement iframe;
+class _BunkerWebViewState extends State<BunkerWebView> {
+  late final WebViewController controller;
+  int progress = 0;
+  bool loading = true;
 
   @override
   void initState() {
     super.initState();
 
-    viewType = 'bunker-frame-${nextId++}';
-
-    iframe = html.IFrameElement()
-      ..src = widget.url
-      ..style.border = '0'
-      ..style.width = '100%'
-      ..style.height = '100%'
-      ..allowFullscreen = true
-      ..referrerPolicy = 'no-referrer-when-downgrade';
-
-    ui_web.platformViewRegistry.registerViewFactory(
-      viewType,
-      (int viewId) => iframe,
-    );
+    controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF111318))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (value) {
+            if (mounted) {
+              setState(() {
+                progress = value;
+                loading = value < 100;
+              });
+            }
+          },
+          onPageStarted: (url) {
+            if (mounted) {
+              setState(() {
+                loading = true;
+                progress = 0;
+              });
+            }
+          },
+          onPageFinished: (url) {
+            if (mounted) {
+              setState(() {
+                loading = false;
+                progress = 100;
+              });
+            }
+          },
+          onWebResourceError: (error) {
+            debugPrint('WebView error: ${error.description}');
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.url));
   }
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(
-        top: Radius.circular(18),
-      ),
-      child: HtmlElementView(
-        viewType: viewType,
-      ),
+    return Stack(
+      children: [
+        WebViewWidget(controller: controller),
+
+        if (loading)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: LinearProgressIndicator(
+              value: progress == 0 ? null : progress / 100,
+              minHeight: 3,
+              backgroundColor: const Color(0xFF20242C),
+              color: const Color(0xFFAAC7FF),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const BunkerApp());
 }
 
@@ -16,8 +17,9 @@ class BunkerApp extends StatelessWidget {
       title: 'Бункер России',
       theme: ThemeData(
         useMaterial3: true,
+        brightness: Brightness.dark,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF8AB4F8),
+          seedColor: const Color(0xFFAAC7FF),
           brightness: Brightness.dark,
           surface: const Color(0xFF111318),
         ),
@@ -36,7 +38,7 @@ class BunkerSite {
   const BunkerSite(this.name, this.url, this.icon);
 }
 
-const sites = [
+const List<BunkerSite> sites = [
   BunkerSite(
     'БПЛА Alert',
     'https://bplaalert.ru/?ysclid=mwwiudy45b811494353',
@@ -85,11 +87,13 @@ class _BunkerHomeState extends State<BunkerHome> {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: const Color(0xFF111318),
+        titleSpacing: 16,
         title: Row(
           children: [
             Container(
-              width: 43,
               height: 43,
+              width: 43,
               decoration: BoxDecoration(
                 color: const Color(0xFF26364D),
                 borderRadius: BorderRadius.circular(15),
@@ -97,6 +101,7 @@ class _BunkerHomeState extends State<BunkerHome> {
               child: const Icon(
                 Icons.shield_rounded,
                 color: Color(0xFFAAC7FF),
+                size: 26,
               ),
             ),
             const SizedBox(width: 12),
@@ -114,7 +119,7 @@ class _BunkerHomeState extends State<BunkerHome> {
                   'ИНФОРМАЦИОННЫЙ ЦЕНТР',
                   style: TextStyle(
                     fontSize: 9,
-                    letterSpacing: 1.4,
+                    letterSpacing: 1.5,
                     color: Color(0xFFAAC7FF),
                   ),
                 ),
@@ -122,35 +127,60 @@ class _BunkerHomeState extends State<BunkerHome> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Обновить страницу',
+            onPressed: () {
+              setState(() {});
+            },
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
       ),
 
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFF20242C),
+              borderRadius: BorderRadius.circular(18),
+            ),
             child: Row(
               children: [
-                Icon(current.icon, color: const Color(0xFFAAC7FF)),
+                Icon(
+                  current.icon,
+                  color: const Color(0xFFAAC7FF),
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     current.name,
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
                 ),
-                const Icon(
-                  Icons.circle,
-                  size: 9,
-                  color: Color(0xFF81C995),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF81C995),
+                    shape: BoxShape.circle,
+                  ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 7),
                 const Text(
                   'WEB',
                   style: TextStyle(
                     color: Color(0xFF81C995),
                     fontSize: 11,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -160,21 +190,22 @@ class _BunkerHomeState extends State<BunkerHome> {
           Expanded(
             child: IndexedStack(
               index: selectedIndex,
-              children: [
-                for (final site in sites)
-                  BunkerWebView(
-                    key: ValueKey(site.url),
-                    url: site.url,
-                  ),
-              ],
+              children: List.generate(
+                sites.length,
+                (index) => BunkerWebView(
+                  key: ValueKey(sites[index].url),
+                  url: sites[index].url,
+                  active: selectedIndex == index,
+                ),
+              ),
             ),
           ),
         ],
       ),
 
       bottomNavigationBar: NavigationBar(
+        height: 78,
         selectedIndex: selectedIndex,
-        height: 76,
         labelBehavior:
             NavigationDestinationLabelBehavior.alwaysShow,
         onDestinationSelected: (index) {
@@ -200,10 +231,12 @@ class _BunkerHomeState extends State<BunkerHome> {
 
 class BunkerWebView extends StatefulWidget {
   final String url;
+  final bool active;
 
   const BunkerWebView({
     super.key,
     required this.url,
+    required this.active,
   });
 
   @override
@@ -212,8 +245,10 @@ class BunkerWebView extends StatefulWidget {
 
 class _BunkerWebViewState extends State<BunkerWebView> {
   late final WebViewController controller;
+
   int progress = 0;
   bool loading = true;
+  bool hasError = false;
 
   @override
   void initState() {
@@ -225,42 +260,53 @@ class _BunkerWebViewState extends State<BunkerWebView> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (value) {
-            if (mounted) {
-              setState(() {
-                progress = value;
-                loading = value < 100;
-              });
-            }
+            if (!mounted) return;
+            setState(() {
+              progress = value;
+            });
           },
           onPageStarted: (url) {
-            if (mounted) {
-              setState(() {
-                loading = true;
-                progress = 0;
-              });
-            }
+            if (!mounted) return;
+            setState(() {
+              loading = true;
+              hasError = false;
+              progress = 0;
+            });
           },
           onPageFinished: (url) {
-            if (mounted) {
-              setState(() {
-                loading = false;
-                progress = 100;
-              });
-            }
+            if (!mounted) return;
+            setState(() {
+              loading = false;
+              progress = 100;
+            });
           },
           onWebResourceError: (error) {
-            debugPrint('WebView error: ${error.description}');
+            if (!error.isForMainFrame || !mounted) return;
+            setState(() {
+              loading = false;
+              hasError = true;
+            });
           },
         ),
       )
       ..loadRequest(Uri.parse(widget.url));
   }
 
+  Future<void> reloadPage() async {
+    setState(() {
+      loading = true;
+      hasError = false;
+    });
+    await controller.reload();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        WebViewWidget(controller: controller),
+        WebViewWidget(
+          controller: controller,
+        ),
 
         if (loading)
           Positioned(
@@ -270,8 +316,51 @@ class _BunkerWebViewState extends State<BunkerWebView> {
             child: LinearProgressIndicator(
               value: progress == 0 ? null : progress / 100,
               minHeight: 3,
-              backgroundColor: const Color(0xFF20242C),
               color: const Color(0xFFAAC7FF),
+              backgroundColor: const Color(0xFF20242C),
+            ),
+          ),
+
+        if (hasError)
+          Positioned.fill(
+            child: Container(
+              color: const Color(0xFF111318),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.wifi_off_rounded,
+                        size: 55,
+                        color: Color(0xFFAAC7FF),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Не удалось загрузить сайт',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Проверь подключение к интернету '
+                        'и попробуй ещё раз.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                      const SizedBox(height: 20),
+                      FilledButton.icon(
+                        onPressed: reloadPage,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Повторить'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
       ],

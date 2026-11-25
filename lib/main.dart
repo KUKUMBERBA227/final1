@@ -281,7 +281,7 @@ class _BunkerWebViewState extends State<BunkerWebView> {
             });
           },
           onWebResourceError: (error) {
-            if (!error.isForMainFrame || !mounted) return;
+         if (error.isForMainFrame != true || !mounted) return;
             setState(() {
               loading = false;
               hasError = true;
